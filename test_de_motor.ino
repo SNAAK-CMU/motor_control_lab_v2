@@ -3,12 +3,17 @@
 // #define POTENTIOMETER A2
 // bool positionControl = 0;
 
+// #define ENCODER_PIN_A 2 
+// #define ENCODER_PIN_B 9
+
 // void setup() {
 //   Serial.begin(115200);
 //   setup_dc_motor();
 
 //   pinMode(POTENTIOMETER, INPUT);
 // }
+
+// Encoder myEnc(ENCODER_PIN_A, ENCODER_PIN_B);
 
 // void loop() {
 
