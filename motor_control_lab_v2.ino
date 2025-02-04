@@ -10,8 +10,8 @@
 #define ULTRASONIC_PIN A0
 #define POT_PIN A2
 #define SLOT_PIN A5
-//#define SERVO_PIN 11
-// #define IR_PIN 7
+#define SERVO_PIN 10
+#define IR_PIN 7
 #define BUTTON_PIN 3
 #define STEPPER_DIR_PIN 6
 #define STEPPER_STEP_PIN 5
@@ -34,6 +34,7 @@ int dc_motor_position = 0;
 float pot_output = 0;
 float ultrasonic_distance_cm = 0;
 bool slot_blocked = false; // false if unblocked, true if blocked 
+int ir_value = 1;
 
 bool gui_override = false;
 
@@ -110,6 +111,23 @@ void s2() { // control stepper speed (steps/s) via ultrasonic distance
 
 void s3() { // control servo via IR
   //TODO
+  ir_value = read_irsensor();
+  if (ir_value == 1){
+    set_servo_angle(270);
+  }
+  else if (ir_value == 0){
+    set_servo_angle(0);
+  }
+  else{
+    Serial.print("cant read IR");
+  }
+  // set_servo_angle(0);
+  // delay(1000);
+  // 
+  // delay(1000);
+  // Serial.print();
+  delay(1000);
+  
 }
 
 void s4() { // control all motors via GUI
@@ -122,8 +140,9 @@ void setup() {
   setup_slot(SLOT_PIN);
   setup_potentiometer(POT_PIN);
   setup_ultrasonic(ULTRASONIC_PIN);
-  //setup_servo(SERVO_PIN);
+  setup_servo(SERVO_PIN);
   setup_dc_motor();
+  setup_irsensor(IR_PIN);
   stepper.setMaxSpeed(1000);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), change_state, RISING);
 
@@ -134,6 +153,7 @@ void loop() {
   pot_output = read_potentiometer(POT_PIN);
   ultrasonic_distance_cm = read_ultrasonic(ULTRASONIC_PIN);
   slot_blocked = read_slot(SLOT_PIN);
+  
 
   // State selection behavior
   // Need to clean up how to get in and out of s4 based on if gui override is active

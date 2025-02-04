@@ -8,10 +8,14 @@ void setup_irsensor(uint8_t PIN) {
   IrReceiver.begin(PIN);
 }
 
-int read_irsensor(uint8_t PIN) {
+int read_irsensor() {
   if (IrReceiver.decode()) {
     IrReceiver.resume();
     return (IrReceiver.decodedIRData.command);
+  }
+
+  else{
+    return 1;
   }
 }
 
