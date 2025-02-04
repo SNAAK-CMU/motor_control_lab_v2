@@ -37,6 +37,12 @@ bool slot_blocked = false; // false if unblocked, true if blocked
 
 bool gui_override = false;
 
+double setpointPosition = 0,prevPosition = 0, inputPosition = 0;
+unsigned long previousTime = 0, prevTime = 0;
+double setpointSpeed = 0, currentSpeed = 0;
+double integral_error = 0, prevError = 0;
+double outputPosition = 0;
+
 AccelStepper stepper(AccelStepper::DRIVER, STEPPER_STEP_PIN, STEPPER_DIR_PIN);
 Encoder myEnc(ENCODER_PIN_A, ENCODER_PIN_B);
 
@@ -65,8 +71,23 @@ void change_state() {
 }
 
 void s0() { // control motor velocity via pot
-  dc_motor_speed = map(pot_output, 0, 1023, -500, 500);
-  setMotorSpeed(dc_motor_speed);
+  // PID Gains for speed control
+  unsigned long currTime = micros();
+
+  if(currTime - prevTime > 100000){
+    double Kp = 0.5, Ki = 0.8, Kd = 0.0;
+    double setpointSpeed = map(pot_output, 0, 1023, -800, 800); // Adjust range as needed
+
+    // Get current motor speed
+    double dTime = ((currTime - prevTime) / (1.0e6)); // Convert to seconds
+    dc_motor_speed =  (inputPosition - prevPosition) / (dTime);
+
+    // Calculate PID output for speed control
+    int motorpower = control_dc_motor(setpointSpeed, dc_motor_speed, Kp, Ki, Kd);
+    prevTime = currTime;
+
+    setMotorSpeed(motorpower);
+  }
 }
 
 void s1() { // control motor position via pot
@@ -116,13 +137,13 @@ void loop() {
 
   // State selection behavior
   // Need to clean up how to get in and out of s4 based on if gui override is active
-  if (gui_state_selector != 0) { // if gui is actively trying to override, set to associated state
-    state = gui_state_selector;
-    gui_override = true;
-  } else if (gui_override && gui_state_selector == 0) { // if gui no longer trying to override, revert to state prior to gui
-    state = prev_gui_state;
-    gui_override = false;
-  }
+  // if (gui_state_selector != 0) { // if gui is actively trying to override, set to associated state
+  //   state = gui_state_selector;
+  //   gui_override = true;
+  // } else if (gui_override && gui_state_selector == 0) { // if gui no longer trying to override, revert to state prior to gui
+  //   state = prev_gui_state;
+  //   gui_override = false;
+  // }
 
   if (state == 0 && slot_blocked) {
     state = 1;
