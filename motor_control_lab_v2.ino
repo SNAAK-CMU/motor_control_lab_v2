@@ -34,7 +34,7 @@ int dc_motor_position = 0;
 float pot_output = 0;
 float ultrasonic_distance_cm = 0;
 bool slot_blocked = false; // false if unblocked, true if blocked 
-int ir_value = 1;
+int ir_data = 1;
 
 bool gui_override = false;
 
@@ -65,8 +65,8 @@ void change_state() {
       dc_motor_position = 0;
       myEnc.readAndReset();
     }
-    Serial.print("Current State: ");
-    Serial.println(state);
+    // Serial.print("Current State: ");
+    // Serial.println(state);
     lastDebounceTime = millis();
   }
 }
@@ -111,11 +111,11 @@ void s2() { // control stepper speed (steps/s) via ultrasonic distance
 
 void s3() { // control servo via IR
   //TODO
-  ir_value = read_irsensor();
-  if (ir_value == 1){
+  ir_data = read_irsensor();
+  if (ir_data == 1){
     set_servo_angle(270);
   }
-  else if (ir_value == 0){
+  else if (ir_data == 0){
     set_servo_angle(0);
   }
   else{
@@ -135,6 +135,40 @@ void s4() { // control all motors via GUI
 
 }
 
+String read_serial_port() {
+  String command = "";
+  if (Serial.available() > 0) {
+    // Wait a bit for the entire message to arrive
+    delay(10);
+    // Read all the available characters
+    while (Serial.available() > 0) {
+      char c = Serial.read();
+      // Break if it's the end of the line
+      if (c == '\n') break;
+      // Otherwise, append the character to the command string
+      command += c;
+    }
+    // Trim any leading or trailing whitespace
+    command.trim();
+  }
+  return command;
+}
+
+bool responseReceived = false;
+
+void ping_gui() {
+  if (!responseReceived) {
+    Serial.println("PING");
+    delay(100);  // Wait a bit before checking for response
+
+    String response = read_serial_port();
+    if (response == "PONG") {
+      responseReceived = true;
+      Serial.println("GUI Connection Established!!");
+    }
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   setup_slot(SLOT_PIN);
@@ -149,46 +183,82 @@ void setup() {
 }
 
 void loop() {
-  // read sensors
-  pot_output = read_potentiometer(POT_PIN);
-  ultrasonic_distance_cm = read_ultrasonic(ULTRASONIC_PIN);
-  slot_blocked = read_slot(SLOT_PIN);
-  
+  if (!responseReceived) {
+    ping_gui();
+  } 
+  else {
+      // read sensors
+    pot_output = read_potentiometer(POT_PIN);
+    ultrasonic_distance_cm = read_ultrasonic(ULTRASONIC_PIN);
+    slot_blocked = read_slot(SLOT_PIN);
+    ir_data = 10 ;
+    
+    // Send sensor data
+    // Format = "SENSOR_DATA:pot_output,ultrasonic_distance_cm,ir_data,slot_blocked"
+    Serial.print("SENSOR_DATA:");
+    Serial.print(pot_output);
+    Serial.print(",");
+    Serial.print(ultrasonic_distance_cm);
+    Serial.print(",");
+    Serial.print(ir_data);
+    Serial.print(",");
+    Serial.println(slot_blocked);
 
-  // State selection behavior
-  // Need to clean up how to get in and out of s4 based on if gui override is active
-  // if (gui_state_selector != 0) { // if gui is actively trying to override, set to associated state
-  //   state = gui_state_selector;
-  //   gui_override = true;
-  // } else if (gui_override && gui_state_selector == 0) { // if gui no longer trying to override, revert to state prior to gui
-  //   state = prev_gui_state;
-  //   gui_override = false;
-  // }
+    // prevent flooding port
+    delay(100);
 
-  if (state == 0 && slot_blocked) {
-    state = 1;
-    dc_motor_position = 0;
-    myEnc.readAndReset();
+    
+    // read serial port
+    String command = read_serial_port();
+
+    delay(150); // prevent flooding port
+
+        
+    // Check if the command is "OVERRIDE:ON"
+    if (command == "OVERRIDE:ON") {
+      // change state to s4 (@oliver)
+      Serial.println("Override ON, waiting for command");
+    }
+    if (command == "OVERRIDE:OFF"){
+      // change back to prev_state (@oliver)
+      Serial.println("Override OFF");
+    }
+
+    // State selection behavior
+    // Need to clean up how to get in and out of s4 based on if gui override is active
+    // if (gui_state_selector != 0) { // if gui is actively trying to override, set to associated state
+    //   state = gui_state_selector;
+    //   gui_override = true;
+    // } else if (gui_override && gui_state_selector == 0) { // if gui no longer trying to override, revert to state prior to gui
+    //   state = prev_gui_state;
+    //   gui_override = false;
+    // }
+
+    if (state == 0 && slot_blocked) {
+      state = 1;
+      dc_motor_position = 0;
+      myEnc.readAndReset();
+    }
+    else if (state == 1 && !slot_blocked) state = 0;
+
+    // state behavior
+    switch (state) {
+      case 0:
+        s0();
+        break;
+      case 1:
+        s1();
+        break;
+      case 2:
+        s2();
+        break;
+      case 3:
+        s3();
+        break;
+      case 4:
+        s4(); // should we have one override state, that allows you to control all motors at the same time?
+        break;
+    }
+    if (state <= 3) prev_gui_state = state; // store current state in case gui overrides
   }
-  else if (state == 1 && !slot_blocked) state = 0;
-
-  // state behavior
-  switch (state) {
-    case 0:
-      s0();
-      break;
-    case 1:
-      s1();
-      break;
-    case 2:
-      s2();
-      break;
-    case 3:
-      s3();
-      break;
-    case 4:
-      s4(); // should we have one override state, that allows you to control all motors at the same time?
-      break;
-  }
-  if (state <= 3) prev_gui_state = state; // store current state in case gui overrides
 }
