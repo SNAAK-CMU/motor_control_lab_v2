@@ -12,7 +12,7 @@ class ArduinoGUI(QMainWindow):
 
         try:
             self.serial_port = serial.Serial('COM3', 9600, timeout=1) # Open serial port
-        except serial.SerialException as e:
+        except Exception as e:
             print(f"Error opening serial port: {e}")
             self.serial_port = None
         
