@@ -210,7 +210,7 @@ class ArduinoGUI(QMainWindow):
                 if len(sensor_values) == 8: 
                     self.potentiometer_sensor_label.setText(f"Potentiometer Sensor Data: {sensor_values[0]}")
                     self.ultrasonic_sensor_label.setText(f"Ultrasonic Sensor Data: {sensor_values[1]} cm")
-                    self.ir_sensor_label.setText(f"IR Sensor Data: {sensor_values[2]} cm")
+                    self.ir_sensor_label.setText(f"IR Sensor Data: {sensor_values[2]} decoded message")
                     self.slot_sensor_label.setText(f"Slot Sensor Data: {'Blocked' if sensor_values[3] == '1' else 'Clear'}")
                     
                     self.dc_motor_pos_label.setText(f"DC Motor Velocity: {sensor_values[4]} rpm")

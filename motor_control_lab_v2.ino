@@ -249,7 +249,6 @@ void loop() {
     pot_output = read_potentiometer(POT_PIN);
     ultrasonic_distance_cm = read_ultrasonic(ULTRASONIC_PIN);
     slot_blocked = read_slot(SLOT_PIN);
-    ir_data = 10; //TODO - Why is this always set to 10?
     
     // Send sensor data
     // Format = "SENSOR_DATA:pot_output,ultrasonic_distance_cm,ir_data,slot_blocked"
