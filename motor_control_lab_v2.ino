@@ -66,8 +66,8 @@ void change_state() {
       state = 3;
     } else if (state == 3) {
       state = 0;
-      // dc_motor_position = 0;
-      // myEnc.readAndReset();
+      dc_motor_position = 0;
+      myEnc.readAndReset();
     }
     lastDebounceTime = millis();
   }
@@ -95,12 +95,11 @@ void s0() { // control motor velocity via pot
 }
 
 void s1() { // control motor position via pot
-  inputPosition = myEnc.read() % 210;
-
+  inputPosition = myEnc.read();
   // PID Gains for position control
-  double Kp = 5, Ki = 1, Kd = 0.;
+  double Kp = 5, Ki = 0, Kd = 0.;
   setpointPosition = map(analogRead(POT_PIN), 0, 1023, -90, 90);
-  dc_motor_position = inputPosition * 1.7;
+  dc_motor_position = inputPosition / 1.7;
   // Calculate PID output for position control
   motorPower = control_dc_motor(setpointPosition * 1.7, inputPosition, Kp, Ki, Kd);
   setMotorSpeed(motorPower);
@@ -125,18 +124,14 @@ void s2() { // control stepper speed (steps/s) via ultrasonic distance
 void s3() { // control servo via IR
   //TODO
   ir_data = read_irsensor();
-  if (ir_data == 1){
+  if (ir_data == 30){
     set_servo_angle(270);
     servo_angle = 270;
   }
-  else if (ir_data == 0){
+  else if (ir_data == 45){
     servo_angle = 0;
     set_servo_angle(0);
   }
-  else{
-    Serial.print("cant read IR");
-  }
-  //delay(100);
   
 }
 
@@ -160,6 +155,11 @@ void s4(String command) { // control all motors via GUI
   }
   if (command.startsWith("DC_POS:")) {
     desired_position = command.substring(8).toInt();
+    if (dc_pos == false) {
+      dc_motor_position = 0;
+      dc_motor_speed = 0;
+      myEnc.readAndReset();
+    }
     dc_pos = true;
   }
   if (command.startsWith("DC_SPEED:")) {
@@ -170,11 +170,10 @@ void s4(String command) { // control all motors via GUI
   move_stepper_to_pos(desired_stepper_angle);
   set_servo_angle(servo_angle);  
   if (dc_pos) { 
-    inputPosition = myEnc.read() % 210;
-  
+    inputPosition = myEnc.read();
     // PID Gains for position control
-    double Kp = 5, Ki = 1, Kd = 0.0;
-    dc_motor_position = inputPosition * 1.7;
+    double Kp = 5, Ki = 0, Kd = 0.0;
+    dc_motor_position = inputPosition / 1.7;
     // Calculate PID output for position control
     motorPower = control_dc_motor(desired_position * 1.7 * 2, inputPosition, Kp, Ki, Kd);
     setMotorSpeed(motorPower);
@@ -238,6 +237,7 @@ void setup() {
   setup_irsensor(IR_PIN);
   stepper.setMaxSpeed(1000);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), change_state, RISING);
+  myEnc.readAndReset();
 
 }
 
@@ -272,7 +272,9 @@ void loop() {
       gui_override = true;
       prev_gui_state = state;
       state = 4;
-      Serial.println(state);
+      dc_motor_position = 0;
+      myEnc.readAndReset();
+
       Serial.println("Override ON, waiting for command");
     } else if (command == "OVERRIDE:OFF"){
       // change back to prev_state (@oliver)
@@ -281,13 +283,16 @@ void loop() {
       //Serial.println("State: " + state);
       Serial.println(state);
       Serial.println("Override OFF");
+      dc_motor_position = 0;
+      myEnc.readAndReset();
     }
 
 
     if (state == 0 && slot_blocked) {
       state = 1;
-      // dc_motor_position = 0;
-      // myEnc.readAndReset();
+      dc_motor_position = 0;
+      myEnc.readAndReset();
+
     }
     else if (state == 1 && !slot_blocked) state = 0;
 

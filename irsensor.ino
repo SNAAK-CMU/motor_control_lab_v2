@@ -13,10 +13,7 @@ int read_irsensor() {
     IrReceiver.resume();
     return (IrReceiver.decodedIRData.command);
   }
-
-  else{
-    return 1;
-  }
+  return -1;
 }
 
 
