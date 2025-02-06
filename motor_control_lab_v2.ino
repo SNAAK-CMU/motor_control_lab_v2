@@ -38,11 +38,12 @@ int ir_data = 1;
 
 bool gui_override = false;
 
-double setpointPosition = 0,prevPosition = 0, inputPosition = 0;
-unsigned long previousTime = 0, prevTime = 0;
-double setpointSpeed = 0, currentSpeed = 0;
-double integral_error = 0, prevError = 0;
-double outputPosition = 0;
+// double setpointPosition = 0,prevPosition = 0, inputPosition = 0;
+// unsigned long previousTime = 0, prevTime = 0;
+// double setpointSpeed = 0, currentSpeed = 0;
+// double integral_error = 0, prevError = 0;
+// double outputPosition = 0;
+// int motorpower=0;
 
 AccelStepper stepper(AccelStepper::DRIVER, STEPPER_STEP_PIN, STEPPER_DIR_PIN);
 Encoder myEnc(ENCODER_PIN_A, ENCODER_PIN_B);
@@ -72,30 +73,45 @@ void change_state() {
 }
 
 void s0() { // control motor velocity via pot
-  // PID Gains for speed control
+  if (micros() - prevTime > 10000){
+
+  inputPosition = myEnc.read();
+  double Kp = 0.5, Ki = 0.8, Kd = 0.0;
+  setpointSpeed = map(analogRead(POT_PIN), 0, 1023, -800, 800); // Adjust range as needed
+
+  // Get current motor speed
   unsigned long currTime = micros();
+  double dTime = ((currTime - prevTime) / (1.0e6)); // Convert to seconds
+  currentSpeed =  (inputPosition - prevPosition) / (dTime);
 
-  if(currTime - prevTime > 100000){
-    double Kp = 0.5, Ki = 0.8, Kd = 0.0;
-    double setpointSpeed = map(pot_output, 0, 1023, -800, 800); // Adjust range as needed
+  // Calculate PID output for speed control
+  motorPower = control_dc_motor(setpointSpeed, currentSpeed, Kp, Ki, Kd);
+  prevTime = currTime;
 
-    // Get current motor speed
-    double dTime = ((currTime - prevTime) / (1.0e6)); // Convert to seconds
-    dc_motor_speed =  (inputPosition - prevPosition) / (dTime);
+  prevPosition = inputPosition; 
+  setMotorSpeed(motorPower);  
 
-    // Calculate PID output for speed control
-    int motorpower = control_dc_motor(setpointSpeed, dc_motor_speed, Kp, Ki, Kd);
-    prevTime = currTime;
 
-    setMotorSpeed(motorpower);
+    // Debug prints for speed control
+  Serial.print("Setpoint: ");
+  Serial.print(setpointSpeed);
+  Serial.print(" | Current Speed: ");
+  Serial.print(currentSpeed);
+  Serial.print(" | Output: ");
+  Serial.println(motorPower);
+
   }
 }
 
 void s1() { // control motor position via pot
-  int setpoint = map(pot_output, 0, 1023, -500, 500);
-  dc_motor_position = myEnc.read();
-  int motorpower = control_dc_motor(setpoint, dc_motor_position,  1.5, 0.1, 0.0);
-  setMotorSpeed(motorpower);
+  inputPosition = myEnc.read();
+  // PID Gains for position control
+  double Kp = 1.5, Ki = 0.1, Kd = 0.0;
+  setpointPosition = map(analogRead(POT_PIN), 0, 1023, -500, 500);
+
+  // Calculate PID output for position control
+  motorPower = control_dc_motor(setpointPosition, inputPosition, Kp, Ki, Kd);
+  setMotorSpeed(motorPower);
 }
 
 void s2() { // control stepper speed (steps/s) via ultrasonic distance
@@ -183,6 +199,7 @@ void setup() {
 }
 
 void loop() {
+  responseReceived = true; //REMOVE
   if (!responseReceived) {
     ping_gui();
   } 
@@ -195,23 +212,23 @@ void loop() {
     
     // Send sensor data
     // Format = "SENSOR_DATA:pot_output,ultrasonic_distance_cm,ir_data,slot_blocked"
-    Serial.print("SENSOR_DATA:");
-    Serial.print(pot_output);
-    Serial.print(",");
-    Serial.print(ultrasonic_distance_cm);
-    Serial.print(",");
-    Serial.print(ir_data);
-    Serial.print(",");
-    Serial.println(slot_blocked);
+    // Serial.print("SENSOR_DATA:");
+    // Serial.print(pot_output);
+    // Serial.print(",");
+    // Serial.print(ultrasonic_distance_cm);
+    // Serial.print(",");
+    // Serial.print(ir_data);
+    // Serial.print(",");
+    // Serial.println(slot_blocked);
 
     // prevent flooding port
-    delay(100);
+    // delay(100);
 
     
     // read serial port
     String command = read_serial_port();
 
-    delay(150); // prevent flooding port
+    // delay(150); // prevent flooding port
 
         
     // Check if the command is "OVERRIDE:ON"
@@ -261,4 +278,5 @@ void loop() {
     }
     if (state <= 3) prev_gui_state = state; // store current state in case gui overrides
   }
+  
 }
