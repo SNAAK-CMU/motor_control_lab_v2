@@ -25,7 +25,7 @@ class ArduinoGUI(QMainWindow):
         try:
             # self.serial_port = serial.Serial('/dev/cu.usbmodem21301', 9600, timeout=1) # Open serial port by name
             #self.serial_port = wait_for_ping(port='/dev/cu.usbmodem21301', baud_rate=9600)
-            self.serial_port = wait_for_ping(port='COM5', baud_rate=9600)
+            self.serial_port = wait_for_ping(port='COM4', baud_rate=9600)
             print(self.serial_port)
             print(f"Opened serial port: {self.serial_port}")
 
