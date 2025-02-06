@@ -51,11 +51,6 @@ bool gui_override = false;
 AccelStepper stepper(AccelStepper::DRIVER, STEPPER_STEP_PIN, STEPPER_DIR_PIN);
 Encoder myEnc(ENCODER_PIN_A, ENCODER_PIN_B);
 
-// s0 lets you change dc motor velocity, s1 lets you change dc motor position
-// s2 lets you change stepper motor position, s3 lets you change servo motor position
-
-// s4 allows for override
-
 void change_state() {
   if (!gui_override && (millis() - lastDebounceTime) > debounceDelay) {
     // next state behavior (see diagram)
@@ -114,7 +109,6 @@ void move_stepper_to_pos(int angle) {
 }
 
 void s2() { // control stepper speed (steps/s) via ultrasonic distance
-  //TODO
   float capped_distance = (ultrasonic_distance_cm < 30) ? ultrasonic_distance_cm : 40;
   int angle = map(capped_distance, 10, 30, -45, 45);
   move_stepper_to_pos(angle);
@@ -122,7 +116,6 @@ void s2() { // control stepper speed (steps/s) via ultrasonic distance
 }
 
 void s3() { // control servo via IR
-  //TODO
   int curr_ir_data = read_irsensor();
   if (curr_ir_data == 30){
     ir_data = curr_ir_data;
@@ -141,19 +134,13 @@ int desired_speed = 0;
 int desired_position = 0;
 
 void s4(String command) { // control all motors via GUI
-  //TODO
   
   if (command.startsWith("STEPPER:")) {
     
     desired_stepper_angle = command.substring(8).toInt();
-    // current_stepper_angle = desired_stepper_angle;
-
-    //Serial.println(desired_stepper_angle);
   }
   if (command.startsWith("SERVO:")) {
     servo_angle = command.substring(6).toInt();
-
-    //Serial.println(servo_angle);
   }
   if (command.startsWith("DC_POS:")) {
     desired_position = command.substring(8).toInt();
@@ -198,14 +185,11 @@ void s4(String command) { // control all motors via GUI
 String read_serial_port() {
   String command = "";
   if (Serial.available() > 0) {
-    // Wait a bit for the entire message to arrive
     delay(10);
-    // Read all the available characters
     while (Serial.available() > 0) {
       char c = Serial.read();
       // Break if it's the end of the line
       if (c == '\n') break;
-      // Otherwise, append the character to the command string
       command += c;
     }
     // Trim any leading or trailing whitespace
@@ -262,14 +246,10 @@ void loop() {
 
     }
 
-    // read serial port
     String command = read_serial_port();
-    //delay(15); // prevent flooding port
 
         
-    // Check if the command is "OVERRIDE:ON"
     if (command == "OVERRIDE:ON") {
-      // change state to s4 (@oliver)
       gui_override = true;
       prev_gui_state = state;
       state = 4;
@@ -278,11 +258,9 @@ void loop() {
 
       Serial.println("Override ON, waiting for command");
     } else if (command == "OVERRIDE:OFF"){
-      // change back to prev_state (@oliver)
       gui_override = false;
       state = prev_gui_state;
-      //Serial.println("State: " + state);
-      Serial.println(state);
+
       Serial.println("Override OFF");
       dc_motor_position = 0;
       myEnc.readAndReset();
