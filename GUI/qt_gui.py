@@ -25,7 +25,7 @@ class ArduinoGUI(QMainWindow):
         try:
             # self.serial_port = serial.Serial('/dev/cu.usbmodem21301', 9600, timeout=1) # Open serial port by name
             #self.serial_port = wait_for_ping(port='/dev/cu.usbmodem21301', baud_rate=9600)
-            self.serial_port = wait_for_ping(port='COM5', baud_rate=9600)
+            self.serial_port = wait_for_ping(port='COM4', baud_rate=9600)
             print(self.serial_port)
             print(f"Opened serial port: {self.serial_port}")
 
@@ -83,10 +83,11 @@ class ArduinoGUI(QMainWindow):
             attr_name = f"{motor_type.lower().replace(' ', '_')}_slider"
             setattr(self, attr_name, slider)
 
-        self.stepper_motor_angle_slider.valueChanged.connect(self.control_stepper)
-        self.servo_motor_position_slider.valueChanged.connect(self.control_servo)
-        self.dc_motor_position_slider.valueChanged.connect(self.control_dc_position)
-        self.dc_motor_speed_slider.valueChanged.connect(self.control_dc_speed)
+        self.stepper_motor_angle_slider.sliderReleased.connect(lambda: self.control_stepper(self.stepper_motor_angle_slider.value()))
+        self.servo_motor_position_slider.sliderReleased.connect(lambda: self.control_servo(self.servo_motor_position_slider.value()))
+        self.dc_motor_position_slider.sliderReleased.connect(lambda: self.control_dc_position(self.dc_motor_position_slider.value()))
+        self.dc_motor_speed_slider.sliderReleased.connect(lambda: self.control_dc_speed(self.dc_motor_speed_slider.value()))
+
 
         # Add override button
         self.override_button = QPushButton("Override OFF")

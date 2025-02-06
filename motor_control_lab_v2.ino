@@ -26,7 +26,7 @@ unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 200;
 
 unsigned long lastSensorTime = 0;
-unsigned long sensorTransmitDelay = 500;
+unsigned long sensorTransmitDelay = 1000;
 
 // Current Motor Values
 int current_stepper_angle = 0;
@@ -72,7 +72,6 @@ void change_state() {
       dc_motor_position = 0;
       myEnc.readAndReset();
     }
-    Serial.println(state);
     lastDebounceTime = millis();
   }
 }
@@ -118,7 +117,7 @@ void s3() { // control servo via IR
   else{
     Serial.print("cant read IR");
   }
-  delay(100);
+  //delay(100);
   
 }
 
@@ -126,12 +125,13 @@ void s4(String command) { // control all motors via GUI
   //TODO
   bool dc_pos = false; // flag if doing position control
   int desired_stepper_angle = 0;
-  //Serial.println(command);
   if (command.startsWith("STEPPER:")) {
     desired_stepper_angle = command.substring(8).toInt();
+    //Serial.println(desired_stepper_angle);
   }
   if (command.startsWith("SERVO:")) {
     servo_angle = command.substring(6).toInt();
+    Serial.println(servo_angle);
   }
   if (command.startsWith("DC_POS:")) {
     dc_motor_position = command.substring(8).toInt();
@@ -142,8 +142,7 @@ void s4(String command) { // control all motors via GUI
   }
 
   move_stepper_to_pos(desired_stepper_angle);
-  set_servo_angle(servo_angle);
-  
+  set_servo_angle(servo_angle);  
 }
 
 String read_serial_port() {
@@ -209,11 +208,13 @@ void loop() {
       // TODO: Need to send motor data as well
       Serial.println("SENSOR_DATA:" + String(pot_output) + "," + String(ultrasonic_distance_cm) + "," + String(ir_data) + "," + String(slot_blocked) + "," +String(dc_motor_speed) + "," + String(dc_motor_position) + "," + String(current_stepper_angle) + "," + String(servo_angle));
       lastSensorTime = millis();
+      delay(100);
+
     }
 
     // read serial port
     String command = read_serial_port();
-    delay(15); // prevent flooding port
+    //delay(15); // prevent flooding port
 
         
     // Check if the command is "OVERRIDE:ON"
@@ -222,12 +223,14 @@ void loop() {
       gui_override = true;
       prev_gui_state = state;
       state = 4;
+      Serial.println(state);
       Serial.println("Override ON, waiting for command");
     } else if (command == "OVERRIDE:OFF"){
       // change back to prev_state (@oliver)
       gui_override = false;
       state = prev_gui_state;
       //Serial.println("State: " + state);
+      Serial.println(state);
       Serial.println("Override OFF");
     }
 
@@ -238,8 +241,6 @@ void loop() {
       myEnc.readAndReset();
     }
     else if (state == 1 && !slot_blocked) state = 0;
-
-    Serial.println(state);
 
 
     // state behavior
