@@ -28,6 +28,8 @@ unsigned long debounceDelay = 200;
 unsigned long lastSensorTime = 0;
 unsigned long sensorTransmitDelay = 1000;
 
+bool dc_pos = false; // flag if doing position control
+
 // Current Motor Values
 int current_stepper_angle = 0;
 int dc_motor_speed = 0;
@@ -39,17 +41,12 @@ float pot_output = 0;
 float ultrasonic_distance_cm = 0;
 float prev_ultrasonic_distance_cm = 0;
 float alpha = 0.8;
-
+int desired_stepper_angle = 0;
 bool slot_blocked = false; // false if unblocked, true if blocked 
 int ir_data = 1;
 
 bool gui_override = false;
 
-double setpointPosition = 0,prevPosition = 0, inputPosition = 0;
-unsigned long previousTime = 0, prevTime = 0;
-double setpointSpeed = 0, currentSpeed = 0;
-double integral_error = 0, prevError = 0;
-double outputPosition = 0;
 
 AccelStepper stepper(AccelStepper::DRIVER, STEPPER_STEP_PIN, STEPPER_DIR_PIN);
 Encoder myEnc(ENCODER_PIN_A, ENCODER_PIN_B);
@@ -69,23 +66,44 @@ void change_state() {
       state = 3;
     } else if (state == 3) {
       state = 0;
-      dc_motor_position = 0;
-      myEnc.readAndReset();
+      // dc_motor_position = 0;
+      // myEnc.readAndReset();
     }
     lastDebounceTime = millis();
   }
 }
 
 void s0() { // control motor velocity via pot
-  dc_motor_speed = map(pot_output, 0, 1023, -500, 500);
-  setMotorSpeed(dc_motor_speed);
+  if (micros() - prevTime > 10000){
+
+  inputPosition = myEnc.read();
+  double Kp = 5, Ki = 0.0, Kd = 0.0;
+  setpointSpeed = map(analogRead(POT_PIN), 0, 1023, -800, 800); // Adjust range as needed
+
+  // Get current motor speed
+  unsigned long currTime = micros();
+  double dTime = ((currTime - prevTime) / (1.0e6)); // Convert to seconds
+  currentSpeed =  (inputPosition - prevPosition) / (dTime);
+  dc_motor_speed = currentSpeed * 60 / (210 * 2);
+  // Calculate PID output for speed control
+  motorPower = control_dc_motor(setpointSpeed, currentSpeed, Kp, Ki, Kd);
+  prevTime = currTime;
+
+  prevPosition = inputPosition; 
+  setMotorSpeed(motorPower);  
+  }
 }
 
 void s1() { // control motor position via pot
-  int setpoint = map(pot_output, 0, 1023, -500, 500);
-  dc_motor_position = myEnc.read();
-  int motorpower = control_dc_motor(setpoint, dc_motor_position,  1.5, 0.1, 0.0);
-  setMotorSpeed(motorpower);
+  inputPosition = myEnc.read() % 210;
+
+  // PID Gains for position control
+  double Kp = 5, Ki = 1, Kd = 0.;
+  setpointPosition = map(analogRead(POT_PIN), 0, 1023, -90, 90);
+  dc_motor_position = inputPosition * 1.7;
+  // Calculate PID output for position control
+  motorPower = control_dc_motor(setpointPosition * 1.7, inputPosition, Kp, Ki, Kd);
+  setMotorSpeed(motorPower);
 }
 
 void move_stepper_to_pos(int angle) {
@@ -101,6 +119,7 @@ void s2() { // control stepper speed (steps/s) via ultrasonic distance
   float capped_distance = (ultrasonic_distance_cm < 30) ? ultrasonic_distance_cm : 40;
   int angle = map(capped_distance, 10, 30, -45, 45);
   move_stepper_to_pos(angle);
+
 }
 
 void s3() { // control servo via IR
@@ -121,28 +140,58 @@ void s3() { // control servo via IR
   
 }
 
+int desired_speed = 0;
+int desired_position = 0;
+
 void s4(String command) { // control all motors via GUI
   //TODO
-  bool dc_pos = false; // flag if doing position control
-  int desired_stepper_angle = 0;
+  
   if (command.startsWith("STEPPER:")) {
+    
     desired_stepper_angle = command.substring(8).toInt();
+    // current_stepper_angle = desired_stepper_angle;
+
     //Serial.println(desired_stepper_angle);
   }
   if (command.startsWith("SERVO:")) {
     servo_angle = command.substring(6).toInt();
-    Serial.println(servo_angle);
+
+    //Serial.println(servo_angle);
   }
   if (command.startsWith("DC_POS:")) {
-    dc_motor_position = command.substring(8).toInt();
+    desired_position = command.substring(8).toInt();
     dc_pos = true;
   }
   if (command.startsWith("DC_SPEED:")) {
-    dc_motor_speed = command.substring(9).toInt();
+    desired_speed = command.substring(9).toInt() * 210 * 60 / 100;
+    dc_pos = false;
   }
 
   move_stepper_to_pos(desired_stepper_angle);
   set_servo_angle(servo_angle);  
+  if (dc_pos) { 
+    inputPosition = myEnc.read() % 210;
+  
+    // PID Gains for position control
+    double Kp = 5, Ki = 1, Kd = 0.0;
+    dc_motor_position = inputPosition * 1.7;
+    // Calculate PID output for position control
+    motorPower = control_dc_motor(desired_position * 1.7 * 2, inputPosition, Kp, Ki, Kd);
+    setMotorSpeed(motorPower);
+  } else {
+    inputPosition = myEnc.read();
+    double Kp = 5, Ki = 0.0, Kd = 0.0;
+    unsigned long currTime = micros();
+    double dTime = ((currTime - prevTime) / (1.0e6)); // Convert to seconds
+    currentSpeed =  (inputPosition - prevPosition) / (dTime);
+    dc_motor_speed = currentSpeed * 60 / (210 * 2);
+    // Calculate PID output for speed control
+    motorPower = control_dc_motor(desired_speed, currentSpeed, Kp, Ki, Kd);
+    prevTime = currTime;
+
+    prevPosition = inputPosition; 
+    setMotorSpeed(motorPower); 
+  }
 }
 
 String read_serial_port() {
@@ -208,7 +257,7 @@ void loop() {
       // TODO: Need to send motor data as well
       Serial.println("SENSOR_DATA:" + String(pot_output) + "," + String(ultrasonic_distance_cm) + "," + String(ir_data) + "," + String(slot_blocked) + "," +String(dc_motor_speed) + "," + String(dc_motor_position) + "," + String(current_stepper_angle) + "," + String(servo_angle));
       lastSensorTime = millis();
-      delay(100);
+      delay(10);
 
     }
 
@@ -237,8 +286,8 @@ void loop() {
 
     if (state == 0 && slot_blocked) {
       state = 1;
-      dc_motor_position = 0;
-      myEnc.readAndReset();
+      // dc_motor_position = 0;
+      // myEnc.readAndReset();
     }
     else if (state == 1 && !slot_blocked) state = 0;
 
