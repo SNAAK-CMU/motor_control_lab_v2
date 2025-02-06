@@ -123,12 +123,14 @@ void s2() { // control stepper speed (steps/s) via ultrasonic distance
 
 void s3() { // control servo via IR
   //TODO
-  ir_data = read_irsensor();
-  if (ir_data == 30){
+  int curr_ir_data = read_irsensor();
+  if (curr_ir_data == 30){
+    ir_data = curr_ir_data;
     set_servo_angle(270);
     servo_angle = 270;
   }
-  else if (ir_data == 45){
+  else if (curr_ir_data == 45){
+    ir_data = curr_ir_data;
     servo_angle = 0;
     set_servo_angle(0);
   }
