@@ -1,13 +1,13 @@
 // #include "dc_motor.h"
 
 // #define POTENTIOMETER A2
-// bool positionControl = 0;
+// bool positionControl = 1;
 
 // #define ENCODER_PIN_A 2 
 // #define ENCODER_PIN_B 9
 
 // void setup() {
-//   Serial.begin(115200);
+//   Serial.begin(9600);
 //   setup_dc_motor();
 
 //   pinMode(POTENTIOMETER, INPUT);
@@ -22,10 +22,10 @@
 //     if (positionControl){
 //       // PID Gains for position control
 //       double Kp = 1.5, Ki = 0.1, Kd = 0.0;
-//       setpointPosition = map(analogRead(POTENTIOMETER), 0, 1023, -500, 500);
+//       setpointPosition = map(analogRead(POTENTIOMETER), 0, 1023, -90, 90);
 
 //       // Calculate PID output for position control
-//       motorPower = control_dc_motor(setpointPosition, inputPosition, Kp, Ki, Kd);
+//       motorPower = control_dc_motor(setpointPosition * 1.7, inputPosition, Kp, Ki, Kd);
 
 //     } else {
 //       // PID Gains for speed control
@@ -47,19 +47,19 @@
 
 //     delay(100);
 //     // Debug prints for position control
-//     // Serial.print("Setpoint: ");
-//     // Serial.print(setpointPosition);
-//     // Serial.print(" | Current Position: ");
-//     // Serial.print(inputPosition);
-//     // Serial.print(" | Speed: ");
-//     // Serial.println(motorPower);
+//     Serial.print("Setpoint: ");
+//     Serial.print(setpointPosition);
+//     Serial.print(" | Current Position: ");
+//     Serial.print(inputPosition);
+//     Serial.print(" | Speed: ");
+//     Serial.println(motorPower);
 
 //     // Debug prints for speed control
-//     Serial.print("Setpoint: ");
-//     Serial.print(setpointSpeed);
-//     Serial.print(" | Current Speed: ");
-//     Serial.print(currentSpeed);
-//     Serial.print(" | Output: ");
-//     Serial.println(motorPower);
+//     // Serial.print("Setpoint: ");
+//     // Serial.print(setpointSpeed);
+//     // Serial.print(" | Current Speed: ");
+//     // Serial.print(currentSpeed);
+//     // Serial.print(" | Output: ");
+//     // Serial.println(motorPower);
 
 // }
