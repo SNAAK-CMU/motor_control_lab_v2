@@ -25,14 +25,21 @@ volatile int prev_gui_state = 0; // keep track of state in case gui used
 unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 200;
 
+unsigned long lastSensorTime = 0;
+unsigned long sensorTransmitDelay = 500;
+
 // Current Motor Values
 int current_stepper_angle = 0;
 int dc_motor_speed = 0;
 int dc_motor_position = 0;
+int servo_angle = 0;
 
 // Current Sensor Values
 float pot_output = 0;
 float ultrasonic_distance_cm = 0;
+float prev_ultrasonic_distance_cm = 0;
+float alpha = 0.8;
+
 bool slot_blocked = false; // false if unblocked, true if blocked 
 int ir_data = 1;
 
@@ -65,30 +72,14 @@ void change_state() {
       dc_motor_position = 0;
       myEnc.readAndReset();
     }
-    // Serial.print("Current State: ");
-    // Serial.println(state);
+    Serial.println(state);
     lastDebounceTime = millis();
   }
 }
 
 void s0() { // control motor velocity via pot
-  // PID Gains for speed control
-  unsigned long currTime = micros();
-
-  if(currTime - prevTime > 100000){
-    double Kp = 0.5, Ki = 0.8, Kd = 0.0;
-    double setpointSpeed = map(pot_output, 0, 1023, -800, 800); // Adjust range as needed
-
-    // Get current motor speed
-    double dTime = ((currTime - prevTime) / (1.0e6)); // Convert to seconds
-    dc_motor_speed =  (inputPosition - prevPosition) / (dTime);
-
-    // Calculate PID output for speed control
-    int motorpower = control_dc_motor(setpointSpeed, dc_motor_speed, Kp, Ki, Kd);
-    prevTime = currTime;
-
-    setMotorSpeed(motorpower);
-  }
+  dc_motor_speed = map(pot_output, 0, 1023, -500, 500);
+  setMotorSpeed(dc_motor_speed);
 }
 
 void s1() { // control motor position via pot
@@ -98,10 +89,7 @@ void s1() { // control motor position via pot
   setMotorSpeed(motorpower);
 }
 
-void s2() { // control stepper speed (steps/s) via ultrasonic distance
-  //TODO
-  float capped_distance = (ultrasonic_distance_cm < 30) ? ultrasonic_distance_cm : 40;
-  int angle = map(capped_distance, 10, 30, -45, 45);
+void move_stepper_to_pos(int angle) {
   int steps = angle / 1.8 * 16;
   stepper.moveTo(steps);
   stepper.setSpeed(500);
@@ -109,30 +97,53 @@ void s2() { // control stepper speed (steps/s) via ultrasonic distance
   if (stepper.distanceToGo() == 0) current_stepper_angle = angle;
 }
 
+void s2() { // control stepper speed (steps/s) via ultrasonic distance
+  //TODO
+  float capped_distance = (ultrasonic_distance_cm < 30) ? ultrasonic_distance_cm : 40;
+  int angle = map(capped_distance, 10, 30, -45, 45);
+  move_stepper_to_pos(angle);
+}
+
 void s3() { // control servo via IR
   //TODO
   ir_data = read_irsensor();
   if (ir_data == 1){
     set_servo_angle(270);
+    servo_angle = 270;
   }
   else if (ir_data == 0){
+    servo_angle = 0;
     set_servo_angle(0);
   }
   else{
     Serial.print("cant read IR");
   }
-  // set_servo_angle(0);
-  // delay(1000);
-  // 
-  // delay(1000);
-  // Serial.print();
-  delay(1000);
+  delay(100);
   
 }
 
-void s4() { // control all motors via GUI
+void s4(String command) { // control all motors via GUI
   //TODO
+  bool dc_pos = false; // flag if doing position control
+  int desired_stepper_angle = 0;
+  //Serial.println(command);
+  if (command.startsWith("STEPPER:")) {
+    desired_stepper_angle = command.substring(8).toInt();
+  }
+  if (command.startsWith("SERVO:")) {
+    servo_angle = command.substring(6).toInt();
+  }
+  if (command.startsWith("DC_POS:")) {
+    dc_motor_position = command.substring(8).toInt();
+    dc_pos = true;
+  }
+  if (command.startsWith("DC_SPEED:")) {
+    dc_motor_speed = command.substring(9).toInt();
+  }
 
+  move_stepper_to_pos(desired_stepper_angle);
+  set_servo_angle(servo_angle);
+  
 }
 
 String read_serial_port() {
@@ -185,54 +196,41 @@ void setup() {
 void loop() {
   if (!responseReceived) {
     ping_gui();
-  } 
-  else {
+  } else {
       // read sensors
     pot_output = read_potentiometer(POT_PIN);
     ultrasonic_distance_cm = read_ultrasonic(ULTRASONIC_PIN);
     slot_blocked = read_slot(SLOT_PIN);
-    ir_data = 10 ;
+    ir_data = 10; //TODO - Why is this always set to 10?
     
     // Send sensor data
     // Format = "SENSOR_DATA:pot_output,ultrasonic_distance_cm,ir_data,slot_blocked"
-    Serial.print("SENSOR_DATA:");
-    Serial.print(pot_output);
-    Serial.print(",");
-    Serial.print(ultrasonic_distance_cm);
-    Serial.print(",");
-    Serial.print(ir_data);
-    Serial.print(",");
-    Serial.println(slot_blocked);
+    if ((millis() - lastSensorTime) > sensorTransmitDelay) {
+      // TODO: Need to send motor data as well
+      Serial.println("SENSOR_DATA:" + String(pot_output) + "," + String(ultrasonic_distance_cm) + "," + String(ir_data) + "," + String(slot_blocked) + "," +String(dc_motor_speed) + "," + String(dc_motor_position) + "," + String(current_stepper_angle) + "," + String(servo_angle));
+      lastSensorTime = millis();
+    }
 
-    // prevent flooding port
-    delay(100);
-
-    
     // read serial port
     String command = read_serial_port();
-
-    delay(150); // prevent flooding port
+    delay(15); // prevent flooding port
 
         
     // Check if the command is "OVERRIDE:ON"
     if (command == "OVERRIDE:ON") {
       // change state to s4 (@oliver)
+      gui_override = true;
+      prev_gui_state = state;
+      state = 4;
       Serial.println("Override ON, waiting for command");
-    }
-    if (command == "OVERRIDE:OFF"){
+    } else if (command == "OVERRIDE:OFF"){
       // change back to prev_state (@oliver)
+      gui_override = false;
+      state = prev_gui_state;
+      //Serial.println("State: " + state);
       Serial.println("Override OFF");
     }
 
-    // State selection behavior
-    // Need to clean up how to get in and out of s4 based on if gui override is active
-    // if (gui_state_selector != 0) { // if gui is actively trying to override, set to associated state
-    //   state = gui_state_selector;
-    //   gui_override = true;
-    // } else if (gui_override && gui_state_selector == 0) { // if gui no longer trying to override, revert to state prior to gui
-    //   state = prev_gui_state;
-    //   gui_override = false;
-    // }
 
     if (state == 0 && slot_blocked) {
       state = 1;
@@ -240,6 +238,9 @@ void loop() {
       myEnc.readAndReset();
     }
     else if (state == 1 && !slot_blocked) state = 0;
+
+    Serial.println(state);
+
 
     // state behavior
     switch (state) {
@@ -256,9 +257,8 @@ void loop() {
         s3();
         break;
       case 4:
-        s4(); // should we have one override state, that allows you to control all motors at the same time?
+        s4(command);
         break;
     }
-    if (state <= 3) prev_gui_state = state; // store current state in case gui overrides
   }
 }
