@@ -43,10 +43,10 @@ class ArduinoGUI(QMainWindow):
         self.setup_ultrasonic_sensor_display()
         self.setup_potentiometer_sensor_display()
         self.setup_slot_sensor_display()
-        self.setup_dc_motor_pos_display()
-        self.setup_dc_motor_vel_display()
-        self.setup_servo_display()
-        self.setup_stepper_display()
+        # self.setup_dc_motor_pos_display()
+        # self.setup_dc_motor_vel_display()
+        # self.setup_servo_display()
+        # self.setup_stepper_display()
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_sensor_data)
@@ -58,9 +58,9 @@ class ArduinoGUI(QMainWindow):
 
         motors = [
             ("Stepper Motor Angle", -45, 45, "(angle)"),
-            ("Servo Motor Position", 0, 180, "(angle)"), # deg or rad?
-            ("DC Motor Position", -45, 45, "(angle)"), # deg or rad?
-            ("DC Motor Speed", 0, 150, "(rpm)")
+            ("Servo Motor Position", 0, 270, "(angle)"), # deg or rad?
+            ("DC Motor Position", -45, 45, "(angle)"), # WHAT ARE THE ACTUAL LIMITS? deg or rad?
+            ("DC Motor Speed", 0, 150, "(rpm)") # WHAT ARE THE ACTUAL LIMITS?
         ]
    
         for row, (motor_type, min_val, max_val, unit) in enumerate(motors):
@@ -126,21 +126,37 @@ class ArduinoGUI(QMainWindow):
         self.slot_sensor_label = QLabel("Slot Sensor Data: N/A")
         self.layout.addWidget(self.slot_sensor_label)
 
-    def setup_dc_motor_pos_display(self):
-        self.dc_motor_pos_label = QLabel("DC Motor Position: N/A")
-        self.layout.addWidget(self.dc_motor_pos_label)
+    # def setup_dc_motor_pos_display(self):
+    #     self.dc_motor_pos_label = QLabel("DC Motor Position: N/A")
+    #     self.layout.addWidget(self.dc_motor_pos_label)
 
-    def setup_dc_motor_vel_display(self):
-        self.dc_motor_vel_label = QLabel("DC Motor Velocity: N/A")
-        self.layout.addWidget(self.dc_motor_vel_label)
+    # def setup_dc_motor_vel_display(self):
+    #     self.dc_motor_vel_label = QLabel("DC Motor Velocity: N/A")
+    #     self.layout.addWidget(self.dc_motor_vel_label)
     
-    def setup_stepper_display(self):
-        self.stepper_label = QLabel("Stepper Motor Angle: N/A")
-        self.layout.addWidget(self.stepper_label)
+    # def setup_stepper_display(self):
+    #     self.stepper_label = QLabel("Stepper Motor Angle: N/A")
+    #     self.layout.addWidget(self.stepper_label)
 
-    def setup_servo_display(self):
-        self.servo_label = QLabel("Servo Angle: N/A")
-        self.layout.addWidget(self.servo_label)
+    # def setup_servo_display(self):
+    #     self.servo_label = QLabel("Servo Angle: N/A")
+    #     self.layout.addWidget(self.servo_label)
+    
+    def update_stepper_slider(self, value):
+        self.stepper_motor_angle_slider.setValue(int(value))
+        self.stepper_motor_angle_slider.valueChanged.emit(int(value))
+
+    def update_servo_slider(self, value):
+        self.servo_motor_position_slider.setValue(int(value))
+        self.servo_motor_position_slider.valueChanged.emit(int(value))
+
+    def update_dc_position_slider(self, value):
+        self.dc_motor_position_slider.setValue(int(value))
+        self.dc_motor_position_slider.valueChanged.emit(int(value))
+
+    def update_dc_speed_slider(self, value):
+        self.dc_motor_speed_slider.setValue(int(value))
+        self.dc_motor_speed_slider.valueChanged.emit(int(value))
 
     def control_stepper(self, value):
         command = f"STEPPER:{value}\n" # Send command to Arduino
@@ -183,7 +199,7 @@ class ArduinoGUI(QMainWindow):
             print(f"Serial port is not open. Cannot send command: {command}")
 
     def update_sensor_data(self):
-        if self.serial_port.in_waiting > 0:
+        if self.serial_port != None and self.serial_port.in_waiting > 0:
             data = self.serial_port.readline().decode().strip()
             if data.startswith("SENSOR_DATA:"):
                 print(f"Received sensor data: {data}")
@@ -194,10 +210,11 @@ class ArduinoGUI(QMainWindow):
                     self.ultrasonic_sensor_label.setText(f"Ultrasonic Sensor Data: {sensor_values[1]} cm")
                     self.ir_sensor_label.setText(f"IR Sensor Data: {sensor_values[2]} cm")
                     self.slot_sensor_label.setText(f"Slot Sensor Data: {'Blocked' if sensor_values[3] == '1' else 'Clear'}")
-                    self.dc_motor_pos_label.setText(f"DC Motor Position: {sensor_values[4]} degrees")
-                    self.dc_motor_vel_label.setText(f"DC Motor Velocity: {sensor_values[5]} rpm")
-                    self.stepper_label.setText(f"Stepper Angle: {sensor_values[6]} degrees")
-                    self.servo_label.setText(f"Servo Angle: {sensor_values[7]} degrees")
+                    
+                    self.update_dc_position_slider(sensor_values[4])
+                    self.update_dc_speed_slider(sensor_values[5])
+                    self.update_stepper_slider(sensor_values[6])
+                    self.update_servo_slider(sensor_values[7])
             else:
                 print(f"Received data: {data}")
     
