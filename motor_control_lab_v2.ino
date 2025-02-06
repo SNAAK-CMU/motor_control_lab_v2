@@ -117,7 +117,7 @@ void s3() { // control servo via IR
   else{
     Serial.print("cant read IR");
   }
-  delay(100);
+  //delay(100);
   
 }
 
@@ -125,12 +125,13 @@ void s4(String command) { // control all motors via GUI
   //TODO
   bool dc_pos = false; // flag if doing position control
   int desired_stepper_angle = 0;
-  //Serial.println(command);
   if (command.startsWith("STEPPER:")) {
     desired_stepper_angle = command.substring(8).toInt();
+    //Serial.println(desired_stepper_angle);
   }
   if (command.startsWith("SERVO:")) {
     servo_angle = command.substring(6).toInt();
+    Serial.println(servo_angle);
   }
   if (command.startsWith("DC_POS:")) {
     dc_motor_position = command.substring(8).toInt();
@@ -141,8 +142,7 @@ void s4(String command) { // control all motors via GUI
   }
 
   move_stepper_to_pos(desired_stepper_angle);
-  set_servo_angle(servo_angle);
-  
+  set_servo_angle(servo_angle);  
 }
 
 String read_serial_port() {
@@ -224,7 +224,6 @@ void loop() {
       prev_gui_state = state;
       state = 4;
       Serial.println(state);
-
       Serial.println("Override ON, waiting for command");
     } else if (command == "OVERRIDE:OFF"){
       // change back to prev_state (@oliver)
